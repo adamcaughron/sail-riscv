@@ -63,14 +63,12 @@ FILE *trace_log = NULL;
 char *dtb_file = NULL;
 unsigned char *dtb = NULL;
 size_t dtb_len = 0;
-#ifdef RVFI_DII
 static bool rvfi_dii = false;
 /* Needs to be global to avoid the needed for a set-version packet on each trace
  */
 static unsigned rvfi_trace_version = 1;
 static int rvfi_dii_port;
 static int rvfi_dii_sock;
-#endif
 
 char *sig_file = NULL;
 uint64_t mem_sig_start = 0;
@@ -135,9 +133,7 @@ static struct option options[] = {
     {"report-arch",                 no_argument,       0, 'a'                     },
     {"test-signature",              required_argument, 0, 'T'                     },
     {"signature-granularity",       required_argument, 0, 'g'                     },
-#ifdef RVFI_DII
     {"rvfi-dii",                    required_argument, 0, 'r'                     },
-#endif
     {"help",                        no_argument,       0, 'h'                     },
     {"trace",                       optional_argument, 0, 'v'                     },
     {"no-trace",                    optional_argument, 0, 'V'                     },
@@ -160,9 +156,7 @@ static struct option options[] = {
 static void print_usage(const char *argv0, int ec)
 {
   fprintf(stdout, "Usage: %s [options] <elf_file> [<elf_file> ...]\n", argv0);
-#ifdef RVFI_DII
   fprintf(stdout, "       %s [options] -r <port>\n", argv0);
-#endif
   struct option *opt = options;
   while (opt->name) {
     if (isprint(opt->val))
@@ -258,9 +252,7 @@ static int process_args(int argc, char **argv)
                     "T:"
                     "g:"
                     "h"
-#ifdef RVFI_DII
                     "r:"
-#endif
 #ifdef SAILCOV
                     "c:"
 #endif
@@ -364,13 +356,11 @@ static int process_args(int argc, char **argv)
     case 'h':
       print_usage(argv[0], 0);
       break;
-#ifdef RVFI_DII
     case 'r':
       rvfi_dii = true;
       rvfi_dii_port = atoi(optarg);
       fprintf(stderr, "using %d as RVFI port.\n", rvfi_dii_port);
       break;
-#endif
     case 'V':
       set_config_print(optarg, false);
       break;
@@ -441,21 +431,15 @@ static int process_args(int argc, char **argv)
       break;
     }
   }
-#ifdef RVFI_DII
-  if (optind > argc || (optind == argc && !rvfi_dii))
-    print_usage(argv[0], 0);
-#else
-  if (optind >= argc) {
-    fprintf(stderr, "No elf file provided.\n");
+  if (optind > argc || (optind == argc && !rvfi_dii)) {
+    if (!rvfi_dii)
+      fprintf(stderr, "No elf file provided.\n");
     print_usage(argv[0], 0);
   }
-#endif
   if (dtb_file)
     read_dtb(dtb_file);
 
-#ifdef RVFI_DII
   if (!rvfi_dii)
-#endif
     fprintf(stdout, "Running file %s.\n", argv[optind]);
   return optind;
 }
@@ -545,8 +529,8 @@ void init_sail_reset_vector(uint64_t entry)
 void init_sail(uint64_t elf_entry)
 {
   zinit_model(UNIT);
-#ifdef RVFI_DII
   if (rvfi_dii) {
+    zrvfi_dii_enabled = true;
     rv_ram_base = UINT64_C(0x80000000);
     rv_ram_size = UINT64_C(0x800000);
     rv_rom_base = UINT64_C(0);
@@ -556,7 +540,6 @@ void init_sail(uint64_t elf_entry)
     rv_htif_tohost = UINT64_C(0);
     zPC = elf_entry;
   } else
-#endif
     init_sail_reset_vector(elf_entry);
 }
 
@@ -640,8 +623,6 @@ void flush_logs(void)
   }
 }
 
-#ifdef RVFI_DII
-
 typedef void (*packet_reader_fn)(lbits *rop, unit);
 static void get_and_send_rvfi_packet(packet_reader_fn reader)
 {
@@ -697,8 +678,6 @@ void rvfi_send_trace(unsigned version)
   }
 }
 
-#endif
-
 void run_sail(void)
 {
   bool stepped;
@@ -715,7 +694,6 @@ void run_sail(void)
   }
 
   while (!zhtif_done && (insn_limit == 0 || total_insns < insn_limit)) {
-#ifdef RVFI_DII
     if (rvfi_dii) {
       mach_bits instr_bits;
       if (config_print_rvfi) {
@@ -815,9 +793,7 @@ void run_sail(void)
       flush_logs();
       KILL(sail_int)(&sail_step);
       rvfi_send_trace(rvfi_trace_version);
-    } else /* if (!rvfi_dii) */
-#endif
-    { /* run a Sail step */
+    } else { /* if (!rvfi_dii), run a Sail step */
       sail_int sail_step;
       CREATE(sail_int)(&sail_step);
       CONVERT_OF(sail_int, mach_int)(&sail_step, step_no);
@@ -916,10 +892,13 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-#ifdef RVFI_DII
   uint64_t entry;
-  if (rvfi_dii) {
+  if (rvfi_dii)
     entry = 0x80000000;
+  else
+    entry = load_sail(initial_elf_file, /*main_file=*/true);
+
+  if (rvfi_dii) {
     int listen_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_sock == -1) {
       fprintf(stderr, "Unable to create socket: %s\n", strerror(errno));
@@ -974,11 +953,8 @@ int main(int argc, char **argv)
       return 1;
     }
     printf("Connected\n");
-  } else
-    entry = load_sail(initial_elf_file, /*main_file=*/true);
-#else
-  uint64_t entry = load_sail(initial_elf_file, /*main_file=*/true);
-#endif
+  }
+
   /* Load any additional ELF files into memory */
   for (int i = files_start + 1; i < argc; i++) {
     fprintf(stdout, "Loading additional ELF file %s.\n", argv[i]);
@@ -994,15 +970,11 @@ int main(int argc, char **argv)
 
   do {
     run_sail();
-#ifndef RVFI_DII
-  } while (0);
-#else
     if (rvfi_dii) {
       /* Reset for next test */
       reinit_sail(entry);
     }
   } while (rvfi_dii);
-#endif
   model_fini();
   flush_logs();
   close_logs();

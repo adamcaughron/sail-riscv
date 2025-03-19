@@ -88,15 +88,11 @@ function rX (Regno(r) : regno) -> xlenbits = {
   regval_from_reg(v)
 }
 
-$ifdef RVFI_DII
 function rvfi_wX (Regno(r) : regno, v : xlenbits) -> unit = {
   rvfi_int_data[rvfi_rd_wdata] = zero_extend(v);
   rvfi_int_data[rvfi_rd_addr] = to_bits(8,r);
   rvfi_int_data_present = true;
 }
-$else
-function rvfi_wX (r : regno, v : xlenbits) -> unit = ()
-$endif
 
 function wX (Regno(r) : regno, in_v : xlenbits) -> unit = {
   let v = regval_into_reg(in_v);

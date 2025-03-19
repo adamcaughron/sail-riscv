@@ -23,7 +23,6 @@ bool zstep(sail_int);
 unit ztick_clock(unit);
 unit ztick_platform(unit);
 
-#ifdef RVFI_DII
 unit zrvfi_set_instr_packet(mach_bits);
 mach_bits zrvfi_get_cmd(unit);
 mach_bits zrvfi_get_insn(unit);
@@ -41,12 +40,13 @@ void zrvfi_get_v2_support_packet(sail_bits *rop, unit);
 // Debugging prints
 unit zprint_rvfi_exec(unit);
 unit zprint_instr_packet(uint64_t);
-#endif
 
 extern mach_bits zxlen_val;
 extern bool zhtif_done;
 extern mach_bits zhtif_exit_code;
 extern bool have_exception;
+
+extern bool zrvfi_dii_enabled;
 
 /* machine state */
 

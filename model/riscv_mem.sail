@@ -117,7 +117,6 @@ function checked_mem_read forall 'n, 0 < 'n <= max_mem_access . (
 
 /* Atomic accesses can be done to MMIO regions, e.g. in kernel access to device registers. */
 
-$ifdef RVFI_DII
 val rvfi_read : forall 'n, 'n > 0. (physaddr, int('n), MemoryOpResult((bits(8 * 'n), mem_meta))) -> unit
 function rvfi_read (physaddr(addr), width, result) = {
   rvfi_mem_data[rvfi_mem_addr] = zero_extend(addr);
@@ -131,10 +130,6 @@ function rvfi_read (physaddr(addr), width, result) = {
     Err(_)   => ()
   };
 }
-$else
-val rvfi_read : forall 'n, 'n > 0. (physaddr, int('n), MemoryOpResult((bits(8 * 'n), mem_meta))) -> unit
-function rvfi_read (physaddr(addr), width, result) = ()
-$endif
 
 val mem_read      : forall 'n, 0 < 'n <= max_mem_access . (AccessType(ext_access_type), physaddr, int('n), bool, bool, bool)       -> MemoryOpResult(bits(8 * 'n))
 val mem_read_priv : forall 'n, 0 < 'n <= max_mem_access . (AccessType(ext_access_type), Privilege, physaddr, int('n), bool, bool, bool)       -> MemoryOpResult(bits(8 * 'n))
@@ -151,7 +146,8 @@ function mem_read_priv_meta (typ, priv, paddr, width, aq, rl, res, meta) = {
       (false, true,  true)  => throw(Error_not_implemented("lr.rl")),
       (_, _, _)             => checked_mem_read(typ, priv, paddr, width, aq, rl, res, meta)
     };
-  rvfi_read(paddr, width, result);
+  if (rvfi_dii_enabled)
+    then rvfi_read(paddr, width, result);
   result
 }
 
@@ -172,7 +168,6 @@ function mem_write_ea (addr, width, aq, rl, con) =
   then Err(E_SAMO_Addr_Align())
   else Ok(write_ram_ea(write_kind_of_flags(aq, rl, con), addr, width))
 
-$ifdef RVFI_DII
 val rvfi_write : forall 'n, 0 < 'n <= max_mem_access . (physaddr, int('n), bits(8 * 'n), mem_meta, MemoryOpResult(bool)) -> unit
 function rvfi_write (physaddr(addr), width, value, meta, result) = {
   rvfi_mem_data[rvfi_mem_addr] = zero_extend(addr);
@@ -189,10 +184,6 @@ function rvfi_write (physaddr(addr), width, value, meta, result) = {
     Err(_) => ()
   }
 }
-$else
-val rvfi_write : forall 'n, 'n > 0. (physaddr, int('n), bits(8 * 'n), mem_meta, MemoryOpResult(bool)) -> unit
-function rvfi_write (physaddr(addr), width, value, meta, result) = ()
-$endif
 
 // only used for actual memory regions, to avoid MMIO effects
 function phys_mem_write forall 'n, 0 < 'n <= max_mem_access . (wk : write_kind, paddr : physaddr, width : int('n), data : bits(8 * 'n), meta : mem_meta) -> MemoryOpResult(bool) = {
@@ -242,7 +233,8 @@ function mem_write_value_priv_meta (paddr, width, value, typ, priv, meta, aq, rl
   then Err(E_SAMO_Addr_Align())
   else {
     let result = checked_mem_write(paddr, width, value, typ, priv, meta, aq, rl, con);
-    rvfi_write(paddr, width, value, meta, result);
+    if (rvfi_dii_enabled)
+      then rvfi_write(paddr, width, value, meta, result);
     result
   }
 }

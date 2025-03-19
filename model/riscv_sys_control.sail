@@ -175,15 +175,10 @@ function tval(excinfo : option(xlenbits)) -> xlenbits = {
   }
 }
 
-$ifdef RVFI_DII
 val rvfi_trap : unit -> unit
 // TODO: record rvfi_trap_data
 function rvfi_trap () =
   rvfi_inst_data[rvfi_trap] = 0x01
-$else
-val rvfi_trap : unit -> unit
-function rvfi_trap () = ()
-$endif
 
 /* handle exceptional ctl flow by updating nextPC and operating privilege */
 

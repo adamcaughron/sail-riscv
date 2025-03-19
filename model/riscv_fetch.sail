@@ -12,7 +12,7 @@
 
 function isRVC(h : half) -> bool = not(h[1 .. 0] == 0b11)
 
-function fetch() -> FetchResult =
+function riscv_fetch() -> FetchResult =
   /* fetch PC check for extensions: extensions return a transformed PC to fetch,
    * but any exceptions use the untransformed PC.
    */
@@ -58,3 +58,11 @@ function fetch() -> FetchResult =
       }
     }
   }
+
+function fetch() -> FetchResult = {
+  if (rvfi_dii_enabled) then {
+    rvfi_dii_fetch()
+  } else {
+    riscv_fetch()
+  };
+}

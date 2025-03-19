@@ -131,11 +131,8 @@ foreach (xlen IN ITEMS 32 64)
                 "prelude_mem_addrtype.sail"
                 "prelude_mem_metadata.sail"
                 "prelude_mem.sail"
+                "rvfi_dii.sail"
             )
-
-            if (variant STREQUAL "rvfi")
-                list(APPEND prelude "rvfi_dii.sail")
-            endif()
 
             set(sail_regs_srcs
                 "riscv_csr_begin.sail"
@@ -168,19 +165,12 @@ foreach (xlen IN ITEMS 32 64)
                 "riscv_types_kext.sail"
             )
 
-            if (variant STREQUAL "rvfi")
-                set(riscv_step_ext "riscv_step_rvfi.sail")
-                set(riscv_fetch "riscv_fetch_rvfi.sail")
-            else()
-                set(riscv_step_ext "riscv_step_ext.sail")
-                set(riscv_fetch "riscv_fetch.sail")
-            endif()
-
             set(sail_step_srcs
                 "riscv_step_common.sail"
-                ${riscv_step_ext}
+                "riscv_step_ext.sail"
                 "riscv_decode_ext.sail"
-                ${riscv_fetch}
+                "riscv_fetch_rvfi.sail"
+                "riscv_fetch.sail"
                 "riscv_step.sail"
             )
 
