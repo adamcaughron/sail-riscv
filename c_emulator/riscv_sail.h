@@ -47,6 +47,7 @@ extern mach_bits zhtif_exit_code;
 extern bool have_exception;
 
 extern bool zrvfi_dii_enabled;
+extern bool zrvfi_ext_enabled;
 
 /* machine state */
 

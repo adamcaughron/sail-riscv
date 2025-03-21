@@ -64,6 +64,7 @@ char *dtb_file = NULL;
 unsigned char *dtb = NULL;
 size_t dtb_len = 0;
 static bool rvfi_dii = false;
+static bool rvfi_ext = false;
 /* Needs to be global to avoid the needed for a set-version packet on each trace
  */
 static unsigned rvfi_trace_version = 1;
@@ -134,6 +135,7 @@ static struct option options[] = {
     {"test-signature",              required_argument, 0, 'T'                     },
     {"signature-granularity",       required_argument, 0, 'g'                     },
     {"rvfi-dii",                    required_argument, 0, 'r'                     },
+    {"rvfi-ext",                    required_argument, 0, 'e'                     },
     {"help",                        no_argument,       0, 'h'                     },
     {"trace",                       optional_argument, 0, 'v'                     },
     {"no-trace",                    optional_argument, 0, 'V'                     },
@@ -253,9 +255,8 @@ static int process_args(int argc, char **argv)
                     "g:"
                     "h"
                     "r:"
-#ifdef SAILCOV
+                    "e:"
                     "c:"
-#endif
                     "V::"
                     "v::"
                     "l:"
@@ -358,6 +359,11 @@ static int process_args(int argc, char **argv)
       break;
     case 'r':
       rvfi_dii = true;
+      rvfi_dii_port = atoi(optarg);
+      fprintf(stderr, "using %d as RVFI port.\n", rvfi_dii_port);
+      break;
+    case 'e':
+      rvfi_ext = true;
       rvfi_dii_port = atoi(optarg);
       fprintf(stderr, "using %d as RVFI port.\n", rvfi_dii_port);
       break;
@@ -529,6 +535,8 @@ void init_sail_reset_vector(uint64_t entry)
 void init_sail(uint64_t elf_entry)
 {
   zinit_model(UNIT);
+  zrvfi_dii_enabled = rvfi_dii;
+  zrvfi_ext_enabled = rvfi_ext;
   if (rvfi_dii) {
     zrvfi_dii_enabled = true;
     rv_ram_base = UINT64_C(0x80000000);
@@ -802,6 +810,9 @@ void run_sail(void)
         goto step_exception;
       flush_logs();
       KILL(sail_int)(&sail_step);
+      if (rvfi_ext) {
+        rvfi_send_trace(2);
+      }
     }
     if (stepped) {
       if (config_print_step) {
@@ -898,7 +909,7 @@ int main(int argc, char **argv)
   else
     entry = load_sail(initial_elf_file, /*main_file=*/true);
 
-  if (rvfi_dii) {
+  if (rvfi_dii || rvfi_ext) {
     int listen_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_sock == -1) {
       fprintf(stderr, "Unable to create socket: %s\n", strerror(errno));
@@ -974,7 +985,7 @@ int main(int argc, char **argv)
       /* Reset for next test */
       reinit_sail(entry);
     }
-  } while (rvfi_dii);
+  } while (rvfi_dii && !rvfi_ext);
   model_fini();
   flush_logs();
   close_logs();

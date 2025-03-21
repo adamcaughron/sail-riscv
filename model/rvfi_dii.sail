@@ -10,6 +10,7 @@
 // For use with https://github.com/CTSRD-CHERI/TestRIG
 
 register rvfi_dii_enabled : bool
+register rvfi_ext_enabled : bool
 
 bitfield RVFI_DII_Instruction_Packet : bits(64) = {
    padding   : 63 .. 56, // [7]

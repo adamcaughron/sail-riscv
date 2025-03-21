@@ -146,7 +146,7 @@ function mem_read_priv_meta (typ, priv, paddr, width, aq, rl, res, meta) = {
       (false, true,  true)  => throw(Error_not_implemented("lr.rl")),
       (_, _, _)             => checked_mem_read(typ, priv, paddr, width, aq, rl, res, meta)
     };
-  if (rvfi_dii_enabled)
+  if (rvfi_dii_enabled | rvfi_ext_enabled)
     then rvfi_read(paddr, width, result);
   result
 }
@@ -233,7 +233,7 @@ function mem_write_value_priv_meta (paddr, width, value, typ, priv, meta, aq, rl
   then Err(E_SAMO_Addr_Align())
   else {
     let result = checked_mem_write(paddr, width, value, typ, priv, meta, aq, rl, con);
-    if (rvfi_dii_enabled)
+    if (rvfi_dii_enabled | rvfi_ext_enabled)
       then rvfi_write(paddr, width, value, meta, result);
     result
   }
